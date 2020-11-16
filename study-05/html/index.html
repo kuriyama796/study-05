@@ -1,0 +1,135 @@
+<html>
+    <head>
+        <title>pos-system</title>
+        <link rel="stylesheet" href="./style.css">
+    </head>
+    <body>
+        <h2>pos-system</h2>
+        <div>
+            <label>CSVファイル名<input type="text" id="file_name"></label>
+        </div>
+        <div>
+            <label>商品コード<input type="text" id="item_code"></label>
+        </div>
+        <div>
+            <label>個数<input type="number" id="item_count"></label>
+            <input type="submit" value="登録" id="item_register">
+        </div>
+        <div>
+            <table id="item_table">
+                <thead>
+                  <tr>
+                    <td>商品コード</td>
+                    <td>商品名</td>
+                    <td>価格</td>
+                    <td>個数</td>
+                    <td>金額</td>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                  </tr>
+                <tbody>
+              </table>
+        </div>
+        <div>
+            <label>合計金額<input type="text" id="total_price" readonly="readonly"></label>
+        </div>
+        <div id="accounting_form">
+            <label>お預かり金額<input type="number" id="money"></label>
+            <input type="submit" value="会計" id="accounting_btn">
+        </div>
+        <p id="change"></p>
+        <script type="text/javascript" src="./eel.js"></script>
+        <script>
+            let total_price = 0;
+            let receipt_array = [];
+            // オーダー登録ボタン
+            item_register.addEventListener('click', () => {
+                let table = document.getElementById('item_table');
+                let item_code = document.getElementById('item_code').value;
+                let item_count = document.getElementById('item_count').value;
+                let file_name = document.getElementById('file_name').value;
+                async function run() {
+                    // 入力されたcsvファイル名が存在するか
+                    csv_exists = await eel.csv_exists(file_name)();
+                    if (csv_exists) {
+                        if (item_code && item_count) {
+                                let result = await eel.check_item_code(item_code)();
+                                // 商品コードが存在したらテーブルに追加
+                                if(result) {
+                                    price = result[1] * item_count;
+                                    total_price += price;
+                                    document.getElementById("total_price").value = total_price;
+                                    createCell(item_code, result[0], result[1], item_count, price);
+                                    receipt_array.push(`商品コード: ${item_code} 商品名: ${result[0]} 価格: ${result[1]} 個数: ${item_count} 合計価格: ${price}`);
+                                    console.log(receipt_array);
+                                } else {
+                                    alert("商品コード" + item_code + "は存在しません");
+                                }
+                        } else {
+                            alert("商品コード、個数を入力してください");
+                        }
+
+
+                    } else {
+                        alert(`${file_name}は存在しません`);
+                    }
+                }
+                run();
+                
+                // テーブルのレコード作成
+                function createCell(text) {
+                    let newRow = table.insertRow(-1);
+                    for (var i = 0; i < arguments.length; i++) {
+                        let newCell = newRow.insertCell(-1);
+                        let newText = document.createTextNode(arguments[i]);
+                        newCell.appendChild(newText);
+                    }
+                    let newCell = newRow.insertCell(-1);
+                    newCell.innerHTML = '<input type="button" value="削除" id="coldel" onclick="coldel(this)">';
+                }          
+            })
+            // 会計ボタンクリック処理
+            accounting_btn.addEventListener('click', () => {
+                let total_price = document.getElementById("total_price").value;
+                let money = document.getElementById("money").value;
+                let result = money - total_price;
+                if (total_price && money) {
+                    if (result >= 0) {
+                        receipt_array.push(`合計金額: ${total_price}`);
+                        receipt_array.push(`お預かり金額: ${money}`);
+                        receipt_array.push(`おつり: ${result}`);
+                        eel.write_text(receipt_array);
+                        receipt_array.splice(0);
+                        document.getElementById("change").innerText = "おつり" + result + "円";
+                    } else {
+                        document.getElementById("change").innerText = "お金が足りません";
+                    }
+                } else if (!total_price) {
+                    alert("商品を登録してください");
+                } else {
+                    alert("お預かり金額を入力してください");
+                }
+                
+            })
+
+            function coldel(obj) {
+                    // 削除ボタンを押下された行を取得
+                    tr = obj.parentNode.parentNode;
+                    // 削除されたオーダーの金額を合計金額から引く
+                    total_price -= Number(tr.cells[4].innerText);
+                    document.getElementById("total_price").value = total_price;
+                    // レシートの情報を削除する
+                    receipt_array.splice(tr.sectionRowIndex - 1, 1);
+                    // trのインデックスを取得して行を削除する
+                    tr.parentNode.deleteRow(tr.sectionRowIndex);
+                    console.log(receipt_array);
+            }     
+
+            eel.expose(view_log_js)
+            function view_log_js(text){
+            }
+        </script>
+    </body>
+</html>
